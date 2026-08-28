@@ -41,7 +41,7 @@ class ToolRegistry:
     """Danh mục trung tâm — agent tra cứu tool theo tag, tên, hoặc mô tả."""
 
     def __init__(self, path: Path = REGISTRY_PATH) -> None:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
         self.tools: dict[str, dict] = data["tools"]
         self.servers: dict[str, dict] = data["servers"]
@@ -106,7 +106,7 @@ async def connect_and_call(match: dict, tool_args: dict) -> str:
 
         async with httpx.AsyncClient(headers=headers) as http_client:
             async with streamable_http_client(server["url"], http_client=http_client) as (
-                read, write, _,
+                read, write,
             ):
                 async with ClientSession(read, write) as session:
                     await session.initialize()

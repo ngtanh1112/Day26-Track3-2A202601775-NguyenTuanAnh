@@ -1,232 +1,196 @@
-# Phân biệt MCP và Function Calling
+# Day 26 — Model Context Protocol (MCP) & Function Calling
 
-Đây là hai khái niệm hay bị nhầm lẫn nhưng thực ra ở **hai tầng khác nhau**, và **bổ sung cho nhau** chứ không thay thế.
+> **Báo cáo thực hành & Bài tập lớn Day 26 — AI Engineer Track 3**  
+> **Học viên:** Nguyễn Tuấn Anh (Mã học viên: `2A202601775`)  
+> **Repository:** [ngtanh1112/Day26-Track3-2A202601775-NguyenTuanAnh](https://github.com/ngtanh1112/Day26-Track3-2A202601775-NguyenTuanAnh)
 
-## Cấu trúc repo
+---
+
+## 📌 Bảng Đánh Giá Mức Độ Hoàn Thành Bài Lab
+
+| Cấp độ | Tiêu chí yêu cầu | Trạng thái | Nơi triển khai & Bằng chứng |
+|---|---|:---:|---|
+| **Cơ bản** | • Source code MCP Server do học viên tự xây<br>• Ít nhất 1–2 MCP tools<br>• README hướng dẫn cài đặt & chạy<br>• Mô tả bài toán thực tế & Input/Output từng tool<br>• Hướng dẫn đăng ký với Claude Code<br>• Bằng chứng kiểm tra tool chạy được | **HOÀN THÀNH** | [`05-custom-mcp-server/`](05-custom-mcp-server/)<br>Server `ops-sentinel` với 7 tools chuyên sâu, tài liệu chi tiết, test suite tự động. |
+| **Trung bình** | • Phiên bản server chạy bằng **Streamable HTTP**<br>• **Authentication bằng Token** (Bearer Token verification)<br>• Hướng dẫn & Script test **Token ĐÚNG**<br>• Hướng dẫn & Script test **Token SAI / THIẾU** (Bị chặn 401/403) | **HOÀN THÀNH** | [`05-custom-mcp-server/client_http_auth.py`](05-custom-mcp-server/client_http_auth.py)<br>Xác thực Bearer token qua `MCPServer` + `TokenVerifier`, chặn token sai/thiếu. |
+| **Khó** | • **Versioning** cho một tool thật (v1 vs v2 song song)<br>• **Client cũ (v1) vẫn hoạt động** bình thường (Backward compatibility)<br>• Resource **`server://info`** công bố metadata, version, deprecated tools, migration guide<br>• Client/script đọc metadata trước khi gọi tool | **HOÀN THÀNH** | [`05-custom-mcp-server/client_stdio.py`](05-custom-mcp-server/client_stdio.py)<br>Resource `server://info`, tool `diagnose_system_v1` & `diagnose_system_v2`, `investigate_incident_v1` & `v2`. |
+| **Bảo mật** | • Không commit API key, Access token, Password, Secret, `.env` thật lên GitHub<br>• Sử dụng `.env.example` làm template | **HOÀN THÀNH** | [`.gitignore`](.gitignore), [`.env.example`](.env.example) |
+
+---
+
+## 📂 Cấu trúc Repository
 
 ```
-day26-mcp/
-├── README.md                ← Bạn đang đọc file này
-├── requirements.txt         ← pip install -r requirements.txt
+Day26-Track3-2A202601775-NguyenTuanAnh/
+├── README.md                           ← Báo cáo tổng quan bài lab & ma trận tiêu chí
+├── requirements.txt                    ← Danh sách thư viện: mcp[cli], google-genai, httpx, uvicorn
+├── .env.example                        ← Mẫu biến môi trường an toàn (không chứa secret thật)
+├── .gitignore                          ← Chặn commit .env, venv, cache
 │
-├── 01-function-calling/     ← Bước 1: Function Calling thuần (Gemini SDK)
+├── 01-function-calling/                ← [Lab 1] Function Calling thuần túy với Google Gemini SDK
 │   ├── README.md
 │   └── weather_function_calling.py
 │
-├── 02-mcp-basics/           ← Bước 2: MCP server + client (không cần API key)
+├── 02-mcp-basics/                      ← [Lab 2] MCP cơ bản (FastMCP Server + ClientSession qua stdio)
 │   ├── README.md
 │   ├── weather_server.py
 │   └── weather_client.py
 │
-└── 03-production/           ← Bước 3: Auth, Tool Registry, Versioning
-    ├── README.md
-    ├── auth_server.py
-    ├── auth_client.py
-    ├── registry.json
-    ├── registry_client.py
-    └── versioned_server.py
+├── 03-production/                      ← [Lab 3] Các kiến trúc MCP trong Production
+│   ├── README.md
+│   ├── auth_server.py                  ← Server Streamable HTTP có Bearer Token Auth
+│   ├── auth_client.py                  ← Client kết nối HTTP có Header Authorization
+│   ├── registry.json                   ← Danh mục Tool Registry trung tâm
+│   ├── registry_client.py              ← Agent khám phá & chọn tool động qua Registry
+│   ├── versioned_server.py             ← Server hỗ trợ versioning v1/v2 và resource server://info
+│   └── versioned_client.py             ← Client đọc metadata trước khi gọi tool
+│
+├── 04-lab/                             ← [Lab 4] Weather Agent với Remote MCP Server & Google ADK
+│   ├── README.md
+│   ├── mcp-server/                     ← Remote MCP Server (FastMCP qua Streamable HTTP)
+│   │   ├── weather.py
+│   │   └── Dockerfile
+│   └── mcp-client/                     ← ADK Agent điều phối Function Calling qua McpToolset
+│       ├── weather_agent/agent.py
+│       └── verify_setup.py
+│
+└── 05-custom-mcp-server/               ← ⭐ [BÀI TẬP LỚN MCP CUSTOM - MỨC ĐỘ KHÓ]
+    ├── README.md                       ← Tài liệu đầy đủ: bài toán, I/O tools, Claude Code setup
+    ├── server.py                       ← OpsSentinel MCP Server (Stdio + Streamable HTTP + Auth + Versioning)
+    ├── client_stdio.py                 ← Client Stdio: Đọc metadata server://info & kiểm tra versioning
+    ├── client_http_auth.py             ← Client HTTP: Kiểm thử 3 trường hợp Auth (Đúng, Sai, Thiếu)
+    ├── test_suite.py                   ← Bộ Test Suite E2E tự động xác thực toàn bộ tiêu chí
+    ├── claude_code_config.json         ← Cấu hình tích hợp Claude Code & Claude Desktop
+    └── .env.example                    ← Biến môi trường mẫu cho server
 ```
 
-## Quick start
+---
 
+## ⚡ Hướng Dẫn Cài Đặt & Chạy Nhanh
+
+### 1. Cài đặt môi trường
 ```bash
-python -m venv .venv && source .venv/bin/activate
+python -m venv .venv
+# Trên Windows PowerShell:
+.venv\Scripts\Activate.ps1
+# Trên Linux/macOS:
+source .venv/bin/activate
+
 pip install -r requirements.txt
-
-# MCP demo (không cần API key)
-cd 02-mcp-basics && python weather_client.py
-
-# Function Calling (cần Gemini API key)
-export GEMINI_API_KEY=...
-cd 01-function-calling && python weather_function_calling.py
-
-# Production — Auth (2 terminal)
-cd 03-production
-python auth_server.py              # terminal 1
-python auth_client.py              # terminal 2
-
-# Production — Tool Registry
-cd 03-production && python registry_client.py
 ```
 
 ---
 
-## Định nghĩa ngắn gọn
+### 2. Chạy bài Custom MCP Server — OpsSentinel (Cơ bản, Trung bình & Khó)
 
-**Function Calling** là một *khả năng của model* (capability). Model được huấn luyện để khi bạn đưa cho nó danh sách các "công cụ" (kèm schema mô tả tham số), nó có thể tự quyết định gọi công cụ nào và sinh ra JSON tham số phù hợp. Bản thân model **không chạy** function — nó chỉ nói "hãy gọi `get_weather(city='Hanoi')`". App mới là nơi chạy tool.
+#### 🚀 Chạy toàn bộ Bộ Test Tự Động (Recommended):
+```bash
+cd 05-custom-mcp-server
+python test_suite.py
+```
 
-**MCP (Model Context Protocol)** là một *giao thức chuẩn* (protocol) — giống như USB-C hay HTTP cho thế giới AI. Nó định nghĩa cách một **MCP Client** (như Claude Code, Claude Desktop) kết nối tới các **MCP Server** để khám phá và sử dụng tools, resources, prompts một cách thống nhất.
+#### 🛡️ Chạy kiểm thử Versioning & Metadata qua Stdio:
+```bash
+cd 05-custom-mcp-server
+python client_stdio.py
+```
+
+#### 🔒 Chạy kiểm thử Streamable HTTP & Authentication:
+```bash
+# Terminal 1 (Khởi chạy Server HTTP tại port 8090):
+cd 05-custom-mcp-server
+python server.py --transport streamable-http --port 8090
+
+# Terminal 2 (Chạy Client kiểm thử Auth với 3 kịch bản):
+cd 05-custom-mcp-server
+python client_http_auth.py
+```
 
 ---
 
-## So sánh trực tiếp
+### 3. Đăng ký OpsSentinel MCP Server vào Claude Code / Claude Desktop
+
+#### Cách 1: Đăng ký qua lệnh Claude Code CLI
+```bash
+claude mcp add ops-sentinel -- python d:/AIVIN/Day26-Track3-2A202601775-NguyenTuanAnh/05-custom-mcp-server/server.py --transport stdio
+```
+
+#### Cách 2: Thêm vào file cấu hình Claude Desktop (`claude_desktop_config.json`) hoặc `.claude.json`
+```json
+{
+  "mcpServers": {
+    "ops-sentinel-stdio": {
+      "command": "python",
+      "args": [
+        "d:/AIVIN/Day26-Track3-2A202601775-NguyenTuanAnh/05-custom-mcp-server/server.py",
+        "--transport",
+        "stdio"
+      ],
+      "env": {
+        "PYTHONIOENCODING": "utf-8",
+        "OPS_AUTH_TOKEN": "ops-sec-token-day26-2026"
+      }
+    },
+    "ops-sentinel-http": {
+      "url": "http://localhost:8090/mcp",
+      "headers": {
+        "Authorization": "Bearer ops-sec-token-day26-2026"
+      }
+    }
+  }
+}
+```
+
+---
+
+## 📖 Tóm Tắt Khái Niệm: Function Calling vs Model Context Protocol (MCP)
 
 | Tiêu chí | Function Calling | Model Context Protocol (MCP) |
 |---|---|---|
-| **Bản chất** | Tính năng của mô hình (Model capability) | Giao thức giao tiếp client–server |
-| **Ai định nghĩa tool?** | Bạn hard-code trong từng app | Server tự công bố (self-describe) tool |
-| **Tái sử dụng** | Phải viết lại cho mỗi app/model | Viết 1 lần, mọi MCP client dùng được |
-| **Thực thi** | App của bạn tự chạy | MCP Server chạy, client điều phối |
-| **Tính chuẩn hóa** | Mỗi nhà cung cấp 1 kiểu (OpenAI, Anthropic khác nhau) | Một chuẩn chung do Anthropic đề xuất |
-| **Hệ sinh thái** | Khó chia sẻ dạng module đóng gói sẵn | Dễ dàng chia sẻ và tải về các "MCP Servers" mã nguồn mở |
-
-## Quan hệ giữa chúng
-
-Điểm quan trọng nhất: **MCP dùng Function Calling bên dưới**. Chúng không loại trừ nhau.
-
-```
-User hỏi
-   │
-   ▼
-LLM (dùng Function Calling để quyết định gọi tool nào)
-   │
-   ▼
-MCP Client  ──[giao thức MCP]──►  MCP Server (thực thi tool thật)
-   │                                   │
-   ◄───────────── kết quả ─────────────┘
-   ▼
-LLM tổng hợp câu trả lời
-```
-
-## Khi nào dùng cái nào?
-
-- **Function Calling thuần**: app đơn giản, tool gắn chặt với 1 ứng dụng, không cần chia sẻ.
-- **MCP**: muốn tool/tích hợp dùng lại được trên nhiều AI client, muốn tách biệt logic tool khỏi app, hoặc xây hệ sinh thái tích hợp (DB, file, API nội bộ...).
+| **Bản chất** | Khả năng của mô hình LLM (Model capability) | Giao thức giao tiếp chuẩn hóa Client–Server (Protocol) |
+| **Khai báo Tool** | Viết thủ công schema JSON trong từng ứng dụng | Server tự công bố (Self-describing) qua `@mcp.tool()` |
+| **Khám phá Tool** | Hard-code danh sách `tools` trong code app | Khám phá động tại runtime qua `session.list_tools()` |
+| **Môi trường thực thi** | App client tự thực thi function | MCP Server độc lập thực thi, client chỉ điều phối |
+| **Tái sử dụng** | Khó dùng lại giữa các framework khác nhau | Dùng chung cho Claude Code, Claude Desktop, Cursor, ADK Agents |
+| **Bảo mật & Phân tán** | Gắn chặt vào process của app | Hỗ trợ phân tán qua Streamable HTTP, Bearer Auth, Scopes |
 
 ---
 
-## Minh hoạ bằng mã nguồn
-
-Cùng một tool `get_weather`, dưới đây là hai cách triển khai để thấy rõ sự khác biệt.
-
-### [Cách 1 — Function Calling thuần (Google Gemini SDK)](01-function-calling/)
-
-Tool được **định nghĩa và thực thi ngay trong app**. Model chỉ quyết định gọi tool nào, app tự chạy và đưa kết quả trở lại.
+## 🎯 Bằng Chứng Kiểm Thử Tổng Hợp
 
 ```
-User hỏi → Model quyết định gọi get_weather("Hà Nội")
-                    │
-                    ▼
-             App TỰ THỰC THI hàm get_weather
-                    │
-                    ▼
-             Model tổng hợp câu trả lời
+======================================================================
+🎯 OPS-SENTINEL MCP SERVER — TOÀN BỘ BỘ TEST TỰ ĐỘNG DAY 26
+======================================================================
+
+🚀 [TEST SUITE 1] STDIO TRANSPORT, METADATA, TOOLS & VERSIONING
+✅ 1.1 Khởi tạo Session thành công: ops-sentinel (Protocol: 2025-11-25)
+✅ 1.2 Đọc Metadata 'server://info': v2.2.0, Deprecated Tools=2
+✅ 1.3 Đọc Resource 'server://runbooks' thành công (4 quy trình SOP)
+✅ 1.4 Lấy Prompt template 'triage-incident' thành công
+✅ 1.5 Danh sách Tools (7 tools): get_service_health, query_service_logs, diagnose_system_v1, diagnose_system_v2, investigate_incident_v1, investigate_incident_v2, execute_remediation
+✅ 1.6 Tool get_service_health: auth-service -> HEALTHY
+✅ 1.7 Tool query_service_logs: 2 log entries retrieved
+✅ 1.8 Tool v1 Legacy hoạt động chính xác: [v1] payment-gateway: Trạng thái=DEGRADED, CPU=89.2%, RAM=84.7%, Cảnh báo=2
+✅ 1.9 Tool v2 Modern trả full JSON & Health Score (47.9/100)
+✅ 1.10 Tool execute_remediation (dry_run=True): SIMULATED_SUCCESS
+
+🛡️  [TEST SUITE 2] STREAMABLE HTTP TRANSPORT & TOKEN AUTHENTICATION
+⏳ Đang chờ HTTP Server khởi động tại port 8092...
+📡 HTTP Server đã sẵn sàng!
+
+▶️  [Case 2.1] Gửi Request với Bearer Token ĐÚNG:
+    ✅ Xác thực thành công! Lấy được 7 tools.
+
+▶️  [Case 2.2] Gửi Request với Bearer Token SAI:
+    ✅ Token SAI đã bị chặn thành công!
+
+▶️  [Case 2.3] Gửi Request THIẾU Header Authorization:
+    ✅ Thiếu Token đã bị chặn thành công!
+
+======================================================================
+🏁 TỔNG KẾT BÁO CÁO KIỂM THỬ:
+  • Cơ bản (MCP Tools logic & schema):              ✅ PASSED
+  • Trung bình (Streamable HTTP & Token Auth):       ✅ PASSED
+  • Khó (Versioning v1/v2, server://info, Prompts):  ✅ PASSED
+======================================================================
 ```
-
-> Nhược điểm: schema viết tay, tool gắn chặt trong app — muốn dùng lại ở app khác phải copy cả schema lẫn hàm.
-
-Chi tiết + code: xem [`01-function-calling/README.md`](01-function-calling/README.md)
-
-### [Cách 2 — MCP (server tự công bố tool, mọi client dùng chung)](02-mcp-basics/)
-
-Tool được tách ra **một MCP server độc lập**. Server tự "khai báo" nó có tool gì; bất kỳ MCP client nào (Claude Code, Claude Desktop, Cursor...) cũng cắm vào dùng được mà không cần biết code bên trong.
-
-```
-weather_client.py                       weather_server.py
-┌─────────────┐    giao thức MCP    ┌─────────────────┐
-│  list_tools │ ──────────────────▶ │ @mcp.tool()     │
-│  call_tool  │ ◀────────────────── │ get_weather()   │
-└─────────────┘     stdio           └─────────────────┘
-```
-
-Chi tiết + code: xem [`02-mcp-basics/README.md`](02-mcp-basics/README.md)
-
-### Điểm khác biệt rút ra từ code
-
-| | Function Calling thuần | MCP |
-|---|---|---|
-| Khai báo schema | Tự viết tay trong app | `@mcp.tool()` tự sinh từ type hints |
-| Nơi thực thi tool | Trong app gọi model | Trong MCP server riêng |
-| Khám phá tool | Hard-code danh sách `tools` | `session.list_tools()` tại runtime |
-| Dùng lại ở app khác | Copy code | Cắm thêm client, không sửa server |
-| Vai trò Function Calling | Là toàn bộ cơ chế | Là lớp model bên trong MCP |
-
----
-
-## [MCP trong Production](03-production/)
-
-Các ví dụ trên chạy tốt trên máy cá nhân, nhưng đưa vào **hệ thống production** cần giải quyết thêm ba vấn đề:
-
-```
-┌─────────────────────────────────────────────────────┐
-│                  Production MCP                     │
-│                                                     │
-│  ┌──────────┐   ┌───────────┐   ┌───────────────┐   │
-│  │ Security │   │ Registry  │   │  Versioning   │   │
-│  │          │   │           │   │               │   │
-│  │ • Auth   │   │ • Discover│   │ • v1 compat   │   │
-│  │ • Token  │   │ • Connect │   │ • v2 features │   │
-│  │ • Scopes │   │ • Health  │   │ • Deprecation │   │
-│  └──────────┘   └───────────┘   └───────────────┘   │
-└─────────────────────────────────────────────────────┘
-```
-
-### 1. Security — Authentication & Authorization
-
-MCP server phục vụ qua **HTTP** cho nhiều client → cần xác thực. MCP SDK hỗ trợ sẵn **Bearer Token** verification:
-
-- Server: cấu hình `AuthSettings` + implement `TokenVerifier` protocol
-- Client: gửi header `Authorization: Bearer <token>` qua `httpx.AsyncClient`
-- Không có token → 401, token sai → 403, logic tool không biết gì về auth
-
-| Tầng | Demo (stdio) | Production (HTTP) |
-|---|---|---|
-| Transport | stdio (cùng máy) | Streamable HTTP (qua mạng) |
-| Auth | Không cần | Bearer token / OAuth / mTLS |
-| Phạm vi truy cập | Toàn bộ | Scopes giới hạn từng client |
-
-### 2. Tool Registry & Discovery
-
-Agent **không hard-code** tool nào. Nó hỏi **Tool Registry** — danh mục trung tâm liệt kê tất cả tool từ mọi server — theo yêu cầu task:
-
-```
-Agent nhận task "lấy thời tiết Hà Nội"
-   │
-   ▼
-Tool Registry: "tool nào có tag 'weather'?"
-   │
-   ├── get_weather v1.0 → server: weather (stdio)
-   └── get_weather_v2 v2.0 → server: weather-v2 (stdio)
-   │
-   ▼
-Agent chọn best match (v2.0, không deprecated)
-   │
-   ▼
-Kết nối tới server weather-v2, gọi get_weather_v2(city="Hanoi")
-```
-
-Registry là **tool-centric** — đơn vị khám phá là **tool** (tag, description, parameters), không phải server.
-
-| | Hard-code (demo) | Tool Registry (production) |
-|---|---|---|
-| Agent biết tool nào? | Chỉ tool được code sẵn | Tất cả tool trong registry |
-| Tìm tool | Theo tên cố định | Theo tag, keyword, capability |
-| Thêm tool mới | Sửa code agent | Thêm entry vào registry |
-| Chọn tool | Developer quyết định | Agent tự chọn best match |
-
-### 3. Versioning & Backward Compatibility
-
-Server v1 có `get_weather(city)` trả chuỗi đơn giản. V2 muốn trả JSON chi tiết, thêm `include_forecast`. Nếu đổi trực tiếp → mọi client cũ break. Giải pháp — 3 kỹ thuật kết hợp:
-
-| Kỹ thuật | Mô tả |
-|---|---|
-| **Tool mới song song** | `get_weather_v2` tồn tại bên cạnh `get_weather` — không xoá tool cũ |
-| **Tham số optional** | `include_forecast`, `units` có default → client cũ gọi vẫn đúng |
-| **Server metadata** | Resource `server://info` công bố version + deprecation notice |
-
-Chi tiết + code cho cả 3 phần: xem [`03-production/README.md`](03-production/README.md)
-
-### Tổng kết Production Checklist
-
-| Khía cạnh | Dev/Demo | Production |
-|---|---|---|
-| **Transport** | stdio (cùng máy) | HTTP/SSE (qua mạng) |
-| **Auth** | Không | Bearer token, OAuth, mTLS |
-| **Discovery** | Hard-code tool/server | Tool Registry — agent tìm tool theo task |
-| **Versioning** | 1 tool duy nhất | Tool v1 + v2 song song, deprecation notice |
-| **Health** | Không | Health check, retry, circuit breaker |
-| **Logging** | `print()` | Structured logging, tracing (OpenTelemetry) |
-
----
-
-**Tóm lại:** Function Calling là *cơ chế model gọi công cụ*; MCP là *chuẩn để kết nối model với các công cụ đó* — và MCP thực chất dùng Function Calling làm nền tảng để hoạt động.

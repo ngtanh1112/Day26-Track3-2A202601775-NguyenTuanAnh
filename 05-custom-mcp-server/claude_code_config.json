@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json.schemastore.org/mcp-server-config.json",
+  "mcpServers": {
+    "ops-sentinel-stdio": {
+      "command": "python",
+      "args": [
+        "d:/AIVIN/Day26-Track3-2A202601775-NguyenTuanAnh/05-custom-mcp-server/server.py",
+        "--transport",
+        "stdio"
+      ],
+      "env": {
+        "PYTHONIOENCODING": "utf-8",
+        "OPS_AUTH_TOKEN": "ops-sec-token-day26-2026"
+      }
+    },
+    "ops-sentinel-http": {
+      "url": "http://localhost:8090/mcp",
+      "headers": {
+        "Authorization": "Bearer ops-sec-token-day26-2026"
+      }
+    }
+  }
+}
